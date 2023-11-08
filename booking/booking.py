@@ -4,9 +4,12 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from booking.booking_filtration import BookingFiltration
+from booking.booking_report import BookingReport
 import os
 from datetime import datetime
 import calendar
+from prettytable import PrettyTable
 
 class Booking(webdriver.Chrome):
     def __init__(self, driver_path = r"\\drivers\\chromedriver-mac-x64\\chromedriver", teardown = False):
@@ -33,12 +36,11 @@ class Booking(webdriver.Chrome):
                 EC.presence_of_element_located((By. XPATH, './/button[@class="a83ed08757 c21c56c305 f38b6daa18 d691166b09 ab98298258 deab83296e f4552b6561"]'))
             )
             close_btn = self.find_element(By. XPATH, './/button[@class="a83ed08757 c21c56c305 f38b6daa18 d691166b09 ab98298258 deab83296e f4552b6561"]').click()
-            print('Closed')
         except:
             print('No Campaign')
 
+
     def change_currency(self, currency):
-        print(currency)
         currency_element = self.find_element(By. CSS_SELECTOR, 
         'button[data-testid="header-currency-picker-trigger"]')
         currency_element.click()
@@ -46,12 +48,13 @@ class Booking(webdriver.Chrome):
         selected_currency_element = self.find_element(By. XPATH, f'.//div[contains(text(), "{currency}")]')
         selected_currency_element.click()
 
+
     def select_place_to_go(self, place_to_go):
         search_field = self.find_element(By. XPATH, 
         './/div[@class="hero-banner-searchbox"]//input')
         search_field.click()
+        time.sleep(1.0)
         search_field.send_keys(place_to_go)
-        print('waiting..')
         time.sleep(1)
         first_result = self.find_element(By. ID, 'autocomplete-result-0').click()
 
@@ -61,12 +64,12 @@ class Booking(webdriver.Chrome):
 
         check_out_month, check_out_month_name, check_out_day, check_out_year = Booking.parse_date(self, check_out)
 
-        Booking.select_date(self, check_in_month_name, check_in_year, check_in_day)
+        Booking.check_date(self, check_in_month_name, check_in_year, check_in_day)
 
-        Booking.select_date(self, check_out_month_name, check_out_year, check_out_day)
+        Booking.check_date(self, check_out_month_name, check_out_year, check_out_day)
 
 
-    def select_date(self, month_name, year, day):
+    def check_date(self, month_name, year, day):
 
         isDate = False
 
@@ -94,6 +97,50 @@ class Booking(webdriver.Chrome):
 
         return date_month, month_name, day, year
 
-        
-    
 
+    def add_occupants(self, section, number):
+
+        all_sections = self.find_elements(By. XPATH, f'.//div[@class="bfb38641b0"]')
+
+        for idx, num in enumerate(all_sections):
+
+            if idx == section:
+
+                increase_button = self.find_element(By. XPATH, f'.//div[@class="a7a72174b8"][{idx+1}]//div[@class="bfb38641b0"]//button[2]')
+
+                decrease_button = self.find_element(By. XPATH, f'.//div[@class="a7a72174b8"][{idx+1}]//div[@class="bfb38641b0"]//button[1]')
+
+                while number != int(num.text):
+
+                    if number > int(num.text):
+                        increase_button.click()
+                    elif number < int(num.text):
+                        decrease_button.click()
+
+
+    def select_occupants(self, adults, children, rooms):
+        open_modal = self.find_element(By. XPATH, './/button[@class="a83ed08757 ebbedaf8ac ada2387af8"]').click()
+
+        Booking.add_occupants(self, 0, adults)
+        Booking.add_occupants(self, 1, children)
+        Booking.add_occupants(self, 2, rooms)
+
+    
+    def search(self):
+        search_btn = self.find_element(By. XPATH, './/button[@class="a83ed08757 c21c56c305 a4c1805887 f671049264 d2529514af c082d89982 cceeb8986b"]').click()
+
+
+    def apply_filtrations(self):
+        filtration = BookingFiltration(driver=self)
+        filtration.apply_star_rating(3, 4, 5)
+        filtration.sort_options()
+    
+    def reports(self):
+        time.sleep(2)
+        report = BookingReport(driver=self)
+        report.print_results()
+        table = PrettyTable(
+            field_names = ["Hotel Name", "Hotel Score", "Hotel Price"]
+        )
+        table.add_rows(report.print_results())
+        print(table)
